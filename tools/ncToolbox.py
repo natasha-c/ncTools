@@ -74,7 +74,6 @@ class ncToolboxUI(uiMod.DockableWindowUI):
         button_height[i] = height
 
     minimum_width = (grid_columns*base_width)+((grid_columns-1)*spacing)+(2*margin)+20
-    print minimum_width
 
     # ---------------------------------------------------------------------
     # Other
