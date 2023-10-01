@@ -43,7 +43,7 @@ class ScaleAnimLayer_UI(uiMod.BaseSubUI):
 
         # Create buttons
         self.scale_anim_layer = uiMod.push_button(label = "Scale Anim Layer", size=(self.w[6], self.h[1]))
-        self.scale_anim_layer.clicked.connect(scaleAnimLayer.scale_anim_layer)
+        self.scale_anim_layer.clicked.connect(G.scaleAnimLayer.scale_anim_layer)
         self.main_layout.addWidget(self.scale_anim_layer, 1, 0, 1, 6)
 
         return self.frame_widget
@@ -51,13 +51,12 @@ class ScaleAnimLayer_UI(uiMod.BaseSubUI):
 class ScaleAnimLayer(object):
 
     def __init__(self):
-        if G.scaleAnimLayer:
-            return
         G.scaleAnimLayer = self
 
     def scale_anim_layer(self):
-        controls = animMod.get_target("controls", selected=True)
-        source_anim_layers = animMod.get_target("anim_layers", selected=True)
+        controls = animMod.get_controls(selected=True)
+        source_anim_layers = animMod.get_anim_layers(selected=True)
+        print "here"
         for anim_layer in source_anim_layers:
             anim_layer_name = str(anim_layer)
             anim_layer_override = cmds.animLayer(anim_layer, query=True, override=True)
@@ -67,8 +66,8 @@ class ScaleAnimLayer(object):
             new_anim_layer = cmds.animLayer(new_anim_layer_name, override=anim_layer_override)
 
             for control in controls:
-                attributes = animMod.get_target("attributes", attribute_options=["unlocked", "c", "keyable"], node=control) or []
-
+                attributes = animMod.get_attributes(node=control, attribute_options=["unlocked", "c", "keyable"]) or []
+               
                 for attribute in attributes:
                     #Is it in the source layer?
                     if not animMod.is_control_in_anim_layer(control, anim_layer):

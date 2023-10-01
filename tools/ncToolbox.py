@@ -38,8 +38,8 @@ def run():
 # Constants
 # -----------------------------------------------------------------------------
 
-#SUB_UI_MODS   = ["mayaTools", "mpcTools", "ikfkSnapTest", "selectionTools", "shiftAnimation", "mirrorAnim", "scaleAnimLayer", "worldspaceSnap", "toggleCamera", "keyCleanupTools", "rigSettings", "copyPose", "copyAnimLayer", "standalones"]
-SUB_UI_MODS   = ["mayaTools", "mpcTools", "mirrorAnim", "selectionTools"]
+#SUB_UI_MODS   = ["mayaTools", "sceneSetup", "ikfkSnapTest", "selectionTools", "shiftAnimation", "mirrorAnim", "scaleAnimLayer", "worldspaceSnap", "toggleCamera", "keyCleanupTools", "rigSettings", "copyPose", "copyAnimLayer", "standalones"]
+SUB_UI_MODS   = ["mayaTools", "sceneSetup", "mirrorAnim", "keyCleanupTools", "copyAnimLayer", "scaleAnimLayer", "copyPose", "copyWorldSpace", "transferAnim", "loopTools",]
 
 # Import subUI modules
 for mod in SUB_UI_MODS:
@@ -74,6 +74,7 @@ class ncToolboxUI(uiMod.DockableWindowUI):
         button_height[i] = height
 
     minimum_width = (grid_columns*base_width)+((grid_columns-1)*spacing)+(2*margin)+20
+    print minimum_width
 
     # ---------------------------------------------------------------------
     # Other

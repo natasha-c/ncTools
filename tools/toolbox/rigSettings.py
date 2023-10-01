@@ -51,12 +51,6 @@ class RigSettings_UI(uiMod.BaseSubUI):
         self.main_widget.setLayout(self.main_layout)
 
         # Create buttons
-        """self.current_select = uiMod.label(label="Current Selection", size = (self.w[6], self.h[1]), h_adjust=10, align="center")
-        self.main_layout.addWidget(self.current_select, 0, 0, 1, 6)
-
-        self.current_line_edit = uiMod.line_edit(size=(self.w[6], self.h[1]))
-        self.main_layout.addWidget(self.current_line_edit, 1, 0, 1, 6)"""
-
         self.quick_select = uiMod.label(label="Quick Select", size = (self.w[6], self.h[1]), h_adjust=10, align="center")
         self.main_layout.addWidget(self.quick_select, 2, 0, 1, 6)
 
@@ -94,7 +88,6 @@ class RigSettings_UI(uiMod.BaseSubUI):
         self.slow_speed= uiMod.push_button(label="Slow", size=(self.w[2], self.h[1]))
         self.slow_speed.clicked.connect(self.on_slow_speed_clicked)
         self.main_layout.addWidget(self.slow_speed, 6, 4, 1, 2)
-
 
         return self.frame_widget
 

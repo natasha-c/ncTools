@@ -6,7 +6,8 @@ import maya.cmds as cmds
 import maya.OpenMayaUI as omui
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 
-
+# shiboken
+from shiboken2 import wrapInstance
 
 # Python
 import inspect
@@ -16,135 +17,31 @@ from PySide2 import QtCore
 from PySide2 import QtWidgets
 from PySide2 import QtGui
 
-###############################################################################
-# Dockable UI
-###############################################################################
-"""
-A maya bug - global holds all the widgets restored from maya preferences so that
-qt doesn't garbage collect them if they aren't currently visible
-"""
-restored_widgets = []
+from ncTools.tools.ncToolboxGlobals import ncToolboxGlobals as G
 
-# -----------------------------------------------------------------------------
-# Class
-# -----------------------------------------------------------------------------
-class DockManager(object):
-    def __init__(self):
-        """
-        Will be overriden by each UI
-        """
-        self.mixin = None
-        self.window_name = None
-
-    @classmethod
-    def show(widget, debug=True):
-        """
-        Method to reshow or initiate the UI
-        """
-        # Initiate dock manager
-        instance = widget()
-        # Test if tool is already open
-        if cmds.workspaceControl(instance.window_name + "WorkspaceControl", ex=True):
-            if debug:
-                # Deletes existing UI
-                cmds.deleteUI(instance.window_name + "WorkspaceControl")
-                # Initiate new dock manager
-                instance.__init__()
-                # Rerun to show the new UI
-                instance.show()
-            cmds.workspaceControl(instance.window_name + "WorkspaceControl", edit=True, restore=True)
-        else:
-            # Cretae mixin widget
-            workspace_widget = instance.mixin()
-            print "Workspace_widget", workspace_widget
-            # Get class name of widget
-            class_name = instance.__class__.__name__
-            print "class_name", class_name
-            # Get module name of widget
-            module_name = inspect.getmodule(instance).__name__
-            print "module_name", module_name
-            # Show widget and attach uiScript for restoring widget from maya close
-            workspace_widget.show(dockable=True, uiScript="import {0}\n{0}.{1}.restore_from_close()".format(module_name, class_name))
-
-    @classmethod
-    def restore_from_close(widget):
-        """
-        Method to restore last session's ui
-        """
-        # Initiate dock manager
-        instance = widget()
-        # Get the current maya control that the mixin widget should parent to
-        restored_control = omui.MQtUtil.getCurrentParent()
-        # Create mixin widget
-        widget = instance.mixin()
-        # Find the mixin widget create as a maya control
-        mixin_ptr = omui.MQtUtil.findControl(widget.objectName())
-        # Hold onto pointer so isn't garbage collected
-        restored_widgets.append(widget)
-        # Add misin widget to container ui
-        omui.MQtUtil.addWidgetToMayaLayout(long(mixin_ptr), long(restored_control))
-
-class MayaMixin(MayaQWidgetDockableMixin, QtWidgets.QWidget):
-    def __init__(self, window_name, main_widget, title, minimum_width, **kwargs):
-        """
-        Creates a QWidget that registers as a maya control that will contain custom ui
-        """
-        super(MayaMixin, self).__init__(**kwargs)
-        # Set the ui object name. Use to find UI as maya control class
-        self.setObjectName(window_name)
-        # Layout to hold main_widget
-        self.main_layout = QtWidgets.QVBoxLayout()
-        # Set no margins
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        # Set layout
-        self.setLayout(self.main_layout)
-        # Initiate main_widget class
-        self.mainWidget = main_widget
-        # Add mainWidget to the layout
-        self.main_layout.addWidget(self.mainWidget)
-        # Set the title of the mixin widget
-        self.setWindowTitle(title)
-        # Set mimimum and maximum widths
-        print minimum_width
-        self.setMinimumWidth(minimum_width)
-        self.setMaximumWidth(minimum_width)
-
-class DockableWindowUI(DockManager):
-    WINDOW_NAME = "DockableWindowUI"
-    WINDOW_TITLE = "Dockable Window"
-    def __init__(self):
-        super(DockableWindowUI, self).__init__()
-        self.window_name = self.WINDOW_NAME
-        self.window_title = self.WINDOW_TITLE
-        self.main_widget = QtWidgets.QWidget()
-
-
-        self.mixin = lambda: MayaMixin(window_name = self.window_name,
-                                                 main_widget = self.main_widget,
-                                                 title=self.window_title,
-                                                 minimum_width = self.minimum_width)
-
-        self.build_ui()
-
-    def __getattr____(self, attr):
-        return None
-
-    def build_ui(self):
-        # Override with subclass ui
-        pass
 
 ###############################################################################
-# Base Sub UI
+# Functions
 ###############################################################################
-class BaseSubUI(object):
+def to_QWidget(name):
+    """
+    Given the name of a Maya UI element, return the corresponding QWidget or
+    QAction. If the object does not exist, return None
+    """
+    ptr = omui.MQtUtil.findControl(name)
+    if ptr is None:
+        ptr = omui.MQtUtil.findLayout(name)
+    if ptr is None:
+        ptr = omui.MQtUtil.findMenuItem(name)
+    if ptr is not None:
+        return wrapInstance(long(ptr), QtWidgets.QWidget)
 
-    def __init__(self, parent, width_dict, height_dict, spacing):
-        self.w = width_dict
-        self.h = height_dict
-        self.parent_layout = parent
-        # Spacing
-        self.spacing = spacing
-        print "help"
+def get_maya_window():
+    """
+    Get the main maya windows
+    """
+    ptr = omui.MQtUtil.mainWindow()
+    return wrapInstance(long(ptr), QtWidgets.QWidget)
 
 # -----------------------------------------------------------------------------
 # UI Elements
@@ -230,10 +127,270 @@ def add_context_menu(parent=None, context_menu=None):
 def add_hotkey(parent=None, hotkey=None, connect=None):
     parent.setShortcut(QtWidgets.QKeySequence(hotkey))
 
-# -----------------------------------------------------------------------------
-# Collapsible Frame
-# -----------------------------------------------------------------------------
+class CustomSpinBox(QtWidgets.QLineEdit):
 
+    """
+    Tries to mimic behavior from Maya's internal slider that's found in the channel box.
+    """
+
+    IntSpinBox = 0
+    DoubleSpinBox = 1
+
+    def __init__(self, spinbox_type, value=0, parent=None):
+        super(CustomSpinBox, self).__init__(parent)
+
+        self.setToolTip(
+            "Hold and drag middle mouse button to adjust the value\n"
+            "(Hold CTRL or SHIFT change rate)")
+
+        if spinbox_type == CustomSpinBox.IntSpinBox:
+            self.setValidator(QtGui.QIntValidator(parent=self))
+        else:
+            self.setValidator(QtGui.QDoubleValidator(parent=self))
+
+        self.spinbox_type = spinbox_type
+        self.min = None
+        self.max = None
+        self.steps = 1
+        self.value_at_press = None
+        self.pos_at_press = None
+
+        self.setValue(value)
+
+    def wheelEvent(self, event):
+        super(CustomSpinBox, self).wheelEvent(event)
+
+        steps_mult = self.getStepsMultiplier(event)
+
+        if event.delta() > 0:
+            self.setValue(self.value() + self.steps * steps_mult)
+        else:
+            self.setValue(self.value() - self.steps * steps_mult)
+
+    def mousePressEvent(self, event):
+        if event.buttons() == QtCore.Qt.MiddleButton:
+            self.value_at_press = self.value()
+            self.pos_at_press = event.pos()
+            self.setCursor(QtGui.QCursor(QtCore.Qt.SizeHorCursor))
+        else:
+            super(CustomSpinBox, self).mousePressEvent(event)
+            self.selectAll()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.MiddleButton:
+            self.value_at_press = None
+            self.pos_at_press = None
+            self.setCursor(QtGui.QCursor(QtCore.Qt.IBeamCursor))
+            return
+
+        super(CustomSpinBox, self).mouseReleaseEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() != QtCore.Qt.MiddleButton:
+            return
+
+        if self.pos_at_press is None:
+            return
+
+        steps_mult = self.getStepsMultiplier(event)
+
+        delta = event.pos().x() - self.pos_at_press.x()
+        delta /= 6  # Make movement less sensitive.
+        delta *= self.steps * steps_mult
+
+        value = self.value_at_press + delta
+        self.setValue(value)
+
+        super(CustomSpinBox, self).mouseMoveEvent(event)
+
+    def getStepsMultiplier(self, event):
+        steps_mult = 1
+
+        if event.modifiers() == QtCore.Qt.CTRL:
+            steps_mult = 10
+        elif event.modifiers() == QtCore.Qt.SHIFT:
+            steps_mult = 0.1
+
+        return steps_mult
+
+    def setMinimum(self, value):
+        self.min = value
+
+    def setMaximum(self, value):
+        self.max = value
+
+    def setSteps(self, steps):
+        if self.spinbox_type == CustomSpinBox.IntSpinBox:
+            self.steps = max(steps, 1)
+        else:
+            self.steps = steps
+
+    def value(self):
+        if self.spinbox_type == CustomSpinBox.IntSpinBox:
+            return int(self.text())
+        else:
+            return float(self.text())
+
+    def setValue(self, value):
+        if self.min is not None:
+            value = max(value, self.min)
+
+        if self.max is not None:
+            value = min(value, self.max)
+
+        if self.spinbox_type == CustomSpinBox.IntSpinBox:
+            self.setText(str(int(value)))
+        else:
+            self.setText(str(float(value)))
+            
+###############################################################################
+# Dockable UI
+###############################################################################
+"""
+A maya bug - global holds all the widgets restored from maya preferences so that
+qt doesn't garbage collect them if they aren't currently visible
+"""
+restored_widgets = []
+
+# -----------------------------------------------------------------------------
+# Class
+# -----------------------------------------------------------------------------
+class DockManager(object):
+    def __init__(self):
+        """
+        Will be overriden by each UI
+        """
+        self.mixin = None
+        self.window_name = None
+
+    @classmethod
+    def show(widget, debug=True):
+        """
+        Method to reshow or initiate the UI
+        """
+        # Initiate dock manager
+        instance = widget()
+        # Test if tool is already open
+        if cmds.workspaceControl(instance.window_name + "WorkspaceControl", ex=True):
+            if debug:
+                print "Debugging Mode: On"
+                # Deletes existing UI
+                cmds.deleteUI(instance.window_name + "WorkspaceControl")
+                # Initiate new dock manager
+                instance.__init__()
+                # Rerun to show the new UI
+                instance.show()
+            cmds.workspaceControl(instance.window_name + "WorkspaceControl", edit=True, restore=True)
+        else:
+            # Cretae mixin widget
+            workspace_widget = instance.mixin()
+            # Get class name of widget
+            class_name = instance.__class__.__name__
+            # Get module name of widget
+            module_name = inspect.getmodule(instance).__name__
+            # Show widget and attach uiScript for restoring widget from maya close
+            workspace_widget.show(dockable=True, uiScript="import {0}\n{0}.{1}.restore_from_close()".format(module_name, class_name))
+
+    @classmethod
+    def restore_from_close(widget):
+        """
+        Method to restore last session's ui
+        """
+        # Initiate dock manager
+        instance = widget()
+        # Get the current maya control that the mixin widget should parent to
+        restored_control = omui.MQtUtil.getCurrentParent()
+        # Create mixin widget
+        widget = instance.mixin()
+        # Find the mixin widget create as a maya control
+        mixin_ptr = omui.MQtUtil.findControl(widget.objectName())
+        # Hold onto pointer so isn't garbage collected
+        restored_widgets.append(widget)
+        # Add misin widget to container ui
+        omui.MQtUtil.addWidgetToMayaLayout(long(mixin_ptr), long(restored_control))
+
+class MayaMixin(MayaQWidgetDockableMixin, QtWidgets.QWidget):
+    def __init__(self, window_name, main_widget, title, minimum_width, **kwargs):
+        """
+        Creates a QWidget that registers as a maya control that will contain custom ui
+        """
+        super(MayaMixin, self).__init__(**kwargs)
+        # Set the ui object name. Use to find UI as maya control class
+        self.setObjectName(window_name)
+        # Layout to hold main_widget
+        self.main_layout = QtWidgets.QVBoxLayout()
+        # Set no margins
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        # Set layout
+        self.setLayout(self.main_layout)
+        # Initiate main_widget class
+        self.mainWidget = main_widget
+        # Add mainWidget to the layout
+        self.main_layout.addWidget(self.mainWidget)
+        # Set the title of the mixin widget
+        self.setWindowTitle(title)
+        # Set mimimum and maximum widths
+        self.setMinimumWidth(minimum_width)
+        self.setMaximumWidth(minimum_width)
+
+class DockableWindowUI(DockManager):
+    WINDOW_NAME = "DockableWindowUI"
+    WINDOW_TITLE = "Dockable Window"
+
+    def __init__(self):
+        super(DockableWindowUI, self).__init__()
+        self.window_name = self.WINDOW_NAME
+        self.window_title = self.WINDOW_TITLE
+        self.main_widget = QtWidgets.QWidget()
+        self.mixin = lambda: MayaMixin(window_name = self.window_name,
+                                                 main_widget = self.main_widget,
+                                                 title=self.window_title,
+                                                 minimum_width = self.minimum_width)
+
+        self.build_ui()
+
+    def __getattr____(self, attr):
+        return None
+
+    def build_ui(self):
+        # Override with subclass ui
+        pass
+
+###############################################################################
+# Base Sub UI
+###############################################################################
+class BaseSubUI(object):
+
+    def __init__(self, parent, width_dict, height_dict, spacing):
+        self.w = width_dict
+        self.h = height_dict
+        self.parent_layout = parent
+        # Spacing
+        self.spacing = spacing
+
+class TemplateToolbarBase(object):
+
+    def __init__(self):
+        self.widget = QtWidgets.QWidget()
+        self.layout = QtWidgets.QHBoxLayout()
+        self.widget.setLayout(self.layout)
+        self.layout.setContentsMargins(1, 1, 1, 1)
+        self.layout.setSpacing(1)
+        self.buttons = {}
+
+    def add_buttons(self, buttons):
+        print buttons
+        for button in buttons:
+            toolbar_button = push_button(size=(25,25), label=button, font_size=8)
+            toolbar_button.clicked.connect(eval(buttons[button]))
+            self.layout.addWidget(toolbar_button)
+
+
+
+
+###############################################################################
+# Collapsible Frame
+###############################################################################
 class CollapsibleArrow(QtWidgets.QFrame):
     def __init__(self, parent = None):
         QtWidgets.QFrame.__init__(self, parent = parent)

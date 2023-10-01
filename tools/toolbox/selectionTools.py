@@ -47,12 +47,17 @@ class SelectionTools_UI(uiMod.BaseSubUI):
         # Create buttons
         row = 0
         row += 1
-        self.select_all = uiMod.push_button(label = "All", size=(self.w[6], self.h[1]))
+        self.select_all = uiMod.push_button(label = "All Rigs", size=(self.w[6], self.h[1]))
+        self.select_all.clicked.connect(selectionTools.select_rigs)
+        self.main_layout.addWidget(self.select_all, row, 0, 1, 6)
+
+        row += 1
+        self.select_all = uiMod.push_button(label = "All Controls", size=(self.w[6], self.h[1]))
         self.select_all.clicked.connect(selectionTools.select_all)
         self.main_layout.addWidget(self.select_all, row, 0, 1, 6)
 
         row += 1
-        self.select_side_button = uiMod.push_button(label = "Side", size=(self.w[6], self.h[1]))
+        self.select_side_button = uiMod.push_button(label = "Side (Left/Right)", size=(self.w[6], self.h[1]))
         self.select_side_button.clicked.connect(selectionTools.select_side)
         self.main_layout.addWidget(self.select_side_button, row, 0, 1, 6)
 
@@ -62,7 +67,7 @@ class SelectionTools_UI(uiMod.BaseSubUI):
         self.main_layout.addWidget(self.select_display_group, row, 0, 1, 6)
 
         row += 1
-        self.select_global_display_ik = uiMod.push_button(label = "Global Display IK", size=(self.w[6], self.h[1]))
+        self.select_global_display_ik = uiMod.push_button(label = "Global / Display / IK", size=(self.w[6], self.h[1]))
         self.select_global_display_ik.clicked.connect(selectionTools.select_global_display_ik)
         self.main_layout.addWidget(self.select_global_display_ik, row, 0, 1, 6)
         return self.frame_widget
@@ -74,15 +79,18 @@ class SelectionTools(object):
         G.selectionTools = self
 
     # Main Tools
+    def select_rigs(self):
+        """
+        Procedure to select the top node of all the rigs in the scene
+        """
+        all_rigs = animMod.get_rigs()
+        cmds.select(all_rigs)
+
     def select_all(self):
         """
-        Procedure to get all controls based on current selected node
+        Procedure to get all controls based on current selected nodes
         """
-        self.get_selection_data()
-        all_controls = []
-        for namespace in self.namespaces:
-            controls = self.get_all_controls(self.SD[namespace]["top_node"])
-            all_controls = all_controls + controls
+        all_controls = animMod.get_controls(selected=False)
         cmds.select(all_controls)
 
 

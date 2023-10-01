@@ -5,6 +5,8 @@
 # python
 import weakref
 from functools import partial
+from importlib import reload 
+
 
 # maya
 import maya.cmds as cmds
