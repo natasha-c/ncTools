@@ -46,7 +46,6 @@ class DockManager(object):
         # Test if tool is already open
         if cmds.workspaceControl(instance.window_name + "WorkspaceControl", ex=True):
             if debug:
-                print "Debugging Mode: On"
                 # Deletes existing UI
                 cmds.deleteUI(instance.window_name + "WorkspaceControl")
                 # Initiate new dock manager
